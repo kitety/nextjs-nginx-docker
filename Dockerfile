@@ -44,6 +44,8 @@ ENV NODE_ENV=production
 # Uncomment the following line in case you want to disable telemetry during runtime.
 # ENV NEXT_TELEMETRY_DISABLED=1
 
+RUN apk add --no-cache nginx
+
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
@@ -54,13 +56,16 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-USER nextjs
+COPY nginx/nginx.conf /etc/nginx/nginx.conf
 
 EXPOSE 3000
 
-ENV PORT=3000
+# Next.js 服务跑在容器内 3001，Nginx 对外监听 3000
+ENV PORT=3001
 
 # server.js is created by next build from the standalone output
 # https://nextjs.org/docs/pages/api-reference/config/next-config-js/output
 ENV HOSTNAME="0.0.0.0"
-CMD ["node", "server.js"]
+
+# 用 shell 同时启动 node 与 nginx（nginx 前台运行，保证容器不退出）
+CMD ["sh", "-c", "node server.js & nginx -g 'daemon off;'"]
